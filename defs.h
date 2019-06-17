@@ -120,6 +120,9 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+// ass4
+void            getActiveProc(int *arr);
+struct          proc *getProc(int slot);
 
 // procfs.c
 void            procfsinit(void);

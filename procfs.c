@@ -65,9 +65,9 @@ void appendNumber(char *buff, int num) {
 int Proc_folder(char *ansBuf) {
     appendDirent(ansBuf, ".", namei("/proc")->inum, 0);
     appendDirent(ansBuf, "..", namei("")->inum, 1);
-    appendDirent(ansBuf, "ideinfo", ninodes + 1, 2);
-    appendDirent(ansBuf, "inodestat", ninodes + 2, 3);
-    appendDirent(ansBuf, "inodeinfo", ninodes + 3, 4);
+    appendDirent(ansBuf, "ideinfo", sbninodes + 1, 2);
+    appendDirent(ansBuf, "inodestat", sbninodes + 2, 3);
+    appendDirent(ansBuf, "inodeinfo", sbninodes + 3, 4);
 
     // add dirent for every active process
     int dirPlace = 5;
@@ -81,7 +81,7 @@ int Proc_folder(char *ansBuf) {
             numContainer[1] = 0;
             numContainer[2] = 0;
             itoa(numContainer, pids[i]);
-            appendDirent(ansBuf, numContainer, ninodes + (i + 1) * 100, dirPlace);
+            appendDirent(ansBuf, numContainer, sbninodes + (i + 1) * 100, dirPlace);
             dirPlace++;
         }
     return sizeof(struct dirent) * dirPlace;
@@ -95,8 +95,8 @@ int Pid_folder(char *ansBuf) {
     appendNumber(dirPath, p->pid);
     appendDirent(ansBuf, ".", namei(dirPath)->inum, 0);
     appendDirent(ansBuf, "..", namei("/proc")->inum, 1);
-    appendDirent(ansBuf, "name", ninodes + 1 + (slot + 1) * 100, 2);
-    appendDirent(ansBuf, "status", ninodes + 2 + (slot + 1) * 100, 3);
+    appendDirent(ansBuf, "name", sbninodes + 1 + (slot + 1) * 100, 2);
+    appendDirent(ansBuf, "status", sbninodes + 2 + (slot + 1) * 100, 3);
     return sizeof(struct dirent) * 4;
 }
 
@@ -122,6 +122,7 @@ int pidname_File(char *ansBuf) {
     if (p->pid != 0) {
         appendString(ansBuf, "Process Name: ");
         appendString(ansBuf, p->name);
+        appendString(ansBuf, "\n");
     }
     return strlen(ansBuf);
 }
@@ -143,7 +144,7 @@ int pidstatus_File(char *ansBuf) {
 }
 
 void initSBninodes(struct inode *ip) {
-    if (ninodes != 0)
+    if (sbninodes != 0)
         return;
     struct superblock sb;
     readsb(ip->dev, &sb);

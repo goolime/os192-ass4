@@ -520,12 +520,11 @@ procdump(void) {
 
 void getActiveProc(int *arr) {
     struct proc *p;
-    int i = 0
+    int i = 0;
     acquire(&ptable.lock);
-    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++, i++) {
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++, i++)
         if (p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING)
             arr[i] = p->pid;
-    }
     release(&ptable.lock);
 }
 
