@@ -156,18 +156,18 @@ filewrite(struct file *f, char *addr, int n)
 }
 
 //Ass 4
-int getNumberOfFreeFds(){
+int numOfFreeFDS(){
     struct file *f;
-    int counter = 0;
+    int ans = 0;
 
     acquire(&ftable.lock);
     for(f = ftable.file; f < ftable.file + NFILE; f++){
         if(f->ref == 0){
-            counter++;
+            ans++;
         }
     }
     release(&ftable.lock);
-    return counter;
+    return ans;
 }
 
 void initArray(uint uniqueInums[]){
@@ -212,7 +212,7 @@ int isExist(uint uniqueInums[], uint inum){
     return 0;
 }
 
-int getUniqueInodeFds(){
+int numOfUniqueFDS(){
     struct file *f;
     uint uniqueInums[NINODE];
     initArray(uniqueInums);
@@ -229,7 +229,7 @@ int getUniqueInodeFds(){
     return arraySize(uniqueInums);
 }
 
-int getWriteableFdNumber(){
+int numOfWriteableFDS(){
     struct file *f;
     int counter = 0;
 
@@ -243,7 +243,7 @@ int getWriteableFdNumber(){
     return counter;
 }
 
-int getReadableFdNumber(){
+int numOFReadableFDS(){
     struct file *f;
     int counter = 0;
 
@@ -257,18 +257,18 @@ int getReadableFdNumber(){
     return counter;
 }
 
-int getRefsPerFds(){
+int numOfRafs(){
     struct file *f;
-    int counterTotalRefs = 0;
-    int counterUsedFds = 0;
+    int total = 0;
+    int usedFDS = 0;
 
     acquire(&ftable.lock);
     for(f = ftable.file; f < ftable.file + NFILE; f++){
         if(f->ref != 0){
-            counterUsedFds++;
+            usedFDS++;
         }
-        counterTotalRefs += f->ref;
+        total += f->ref;
     }
     release(&ftable.lock);
-    return counterTotalRefs/counterUsedFds;
+    return total/usedFDS;
 }

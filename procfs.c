@@ -12,6 +12,115 @@
 #include "proc.h"
 #include "x86.h"
 
+int ideinfo_file (char* ansBuffer){
+    int ansSize = 0;
+    int nwo= numOfWritingOps();
+    int nrwo=numOfReadWaitingOps();
+    int nwwo = numWriteWaitingOps();
+    char* wb= WorkingBlocks();
+    char* nl ="\n";
+    char* tmp="Waiting operations: ";
+
+    char wat[10];
+    itoa(wat,nwo,10);
+    strncpy(ansBuffer, tmp, strlen(tmp) + 1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), wat, strlen(wat)+1);
+    ansSize += strlen(wat)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+    char r[10];
+    itoa(r,nrwo,10);
+    tmp="Read waiting operations: ";
+    strncpy(ansBuffer + strlen(ansBuffer), tmp, strlen(tmp)+1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), r, strlen(r)+1);
+    ansSize += strlen(r)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+    char w[10];
+    itoa(w,nwwo,10);
+    tmp="Write waiting operations: ";
+    strncpy(ansBuffer + strlen(ansBuffer), tmp, strlen(tmp)+1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), w, strlen(w)+1);
+    ansSize += strlen(w)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+    tmp="Working blocks: ";
+    strncpy(ansBuffer + strlen(ansBuffer), tmp, strlen(tmp)+1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), wb, strlen(wb)+1);
+    ansSize += strlen(wb)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+
+    return ansSize;
+}
+
+int filestat_file(char* ansBuffer){
+    int ansSize=0;
+    int nffds = numOfFreeFDS();
+    int nuifds = numOfUniqueFDS();
+    int nwfds = numOfWriteableFDS();
+    int nrfds = numOFReadableFDS();
+    int rpfds = numOfRafs();
+    char* nl ="\n";
+
+
+    char* tmp="Free fds: ";
+    char freeFds[10];
+    itoa(freeFds,nffds,10);
+    strncpy(ansBuffer, tmp, strlen(tmp)+1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), freeFds, strlen(freeFds)+1);
+    ansSize += strlen(freeFds)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+
+    tmp= "Unique inode fds: ";
+    char unique[10];
+    itoa(unique,nuifds,10);
+    strncpy(ansBuffer + strlen(ansBuffer), tmp, strlen(tmp)+1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), unique, strlen(unique)+1);
+    ansSize += strlen(unique)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+
+    tmp = "Writeable fds: ";
+    char writeable[10];
+    itoa(writeable,nwfds,10);
+    strncpy(ansBuffer + strlen(ansBuffer), tmp, strlen(tmp)+1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), writeable, strlen(writeable)+1);
+    ansSize += strlen(writeable)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+
+    tmp = "Readable fds: ";
+    char readable[10];
+    itoa(readable,nrfds,10);
+    strncpy(ansBuffer + strlen(ansBuffer), tmp, strlen(tmp)+1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), readable, strlen(readable)+1);
+    ansSize += strlen(readable)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+
+    tmp = "Refs per fds: ";
+    char refsPerFds[10];
+    itoa(refsPerFds,rpfds,10);
+    strncpy(ansBuffer + strlen(ansBuffer), tmp, strlen(tmp)+1);
+    ansSize += strlen(tmp)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), refsPerFds, strlen(refsPerFds)+1);
+    ansSize += strlen(refsPerFds)+1;
+    strncpy(ansBuffer + strlen(ansBuffer), nl, strlen(nl)+1);
+    ansSize += strlen(nl)+1;
+
+    return ansSize;
+}
+
 int 
 procfsisdir(struct inode *ip) {
     if(ip->major == PROCFS && ip->type == T_DEV){
@@ -85,96 +194,11 @@ procfsread(struct inode *ip, char *dst, int off, int n) {
     }
     else if(ip->minor == 1){ //proc/...
         if(ip->inum == 300){ //ideinfo
-            //Waiting operations: <Number of waiting operations starting from idequeue>
-            char waiting[10];
-            itoa(waiting,getWaitingOperations(),10);
-            strncpy(temp_buf, "Waiting operations: ", strlen("Waiting operations: ")+1);
-            size += strlen("Waiting operations: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), waiting, strlen(waiting)+1);
-            size += strlen(waiting)+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
-
-            //Read waiting operations: <Number of read operations>
-            char read[10];
-            itoa(read,getReadWaitingOperations(),10);
-            strncpy(temp_buf + strlen(temp_buf), "Read waiting operations: ", strlen("Read waiting operations: ")+1);
-            size += strlen("Read waiting operations: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), read, strlen(read)+1);
-            size += strlen(read)+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
-
-            //Write waiting operations: <Number of write operations>
-            char write[10];
-            itoa(write,getWriteWaitingOperations(),10);
-            strncpy(temp_buf + strlen(temp_buf), "Write waiting operations: ", strlen("Write waiting operations: ")+1);
-            size += strlen("Write waiting operations: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), write, strlen(write)+1);
-            size += strlen(write)+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
-
-            //Working blocks: <List (#device,#block) that are currently in the queue separated by the ‘;’symbol>
-            strncpy(temp_buf + strlen(temp_buf), "Working blocks: ", strlen("Working blocks: ")+1);
-            size += strlen("Working blocks: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), getWorkingBlocks(), strlen(getWorkingBlocks())+1);
-            size += strlen(getWorkingBlocks())+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
-
+            size =  ideinfo_file(temp_buf);
         }
         else if(ip->inum == 301){ //filestat
-            //Free fds: <free fd number (ref = 0)>
-            char freeFds[10];
-            itoa(freeFds,getNumberOfFreeFds(),10);
-            strncpy(temp_buf, "Free fds: ", strlen("Free fds: ")+1);
-            size += strlen("Free fds: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), freeFds, strlen(freeFds)+1);
-            size += strlen(freeFds)+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
 
-            //Unique inode fds: <Number of different inodes open by all the fds>
-            char unique[10];
-            itoa(unique,getUniqueInodeFds(),10);
-            strncpy(temp_buf + strlen(temp_buf), "Unique inode fds: ", strlen("Unique inode fds: ")+1);
-            size += strlen("Unique inode fds: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), unique, strlen(unique)+1);
-            size += strlen(unique)+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
-
-            //Writeable fds: <Writable fd number>
-            char writeable[10];
-            itoa(writeable,getWriteableFdNumber(),10);
-            strncpy(temp_buf + strlen(temp_buf), "Writeable fds: ", strlen("Writeable fds: ")+1);
-            size += strlen("Writeable fds: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), writeable, strlen(writeable)+1);
-            size += strlen(writeable)+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
-
-            //Readable fds: <Readable fd number>
-            char readable[10];
-            itoa(readable,getReadableFdNumber(),10);
-            strncpy(temp_buf + strlen(temp_buf), "Readable fds: ", strlen("Readable fds: ")+1);
-            size += strlen("Readable fds: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), readable, strlen(readable)+1);
-            size += strlen(readable)+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
-
-            //Refs per fds: <ratio of total number of refs / number of used fds>
-            char refsPerFds[10];
-            itoa(refsPerFds,getRefsPerFds(),10);
-            strncpy(temp_buf + strlen(temp_buf), "Refs per fds: ", strlen("Refs per fds: ")+1);
-            size += strlen("Refs per fds: ")+1;
-            strncpy(temp_buf + strlen(temp_buf), refsPerFds, strlen(refsPerFds)+1);
-            size += strlen(refsPerFds)+1;
-            strncpy(temp_buf + strlen(temp_buf), "\n", strlen("\n")+1);
-            size += strlen("\n")+1;
-
+            size = filestat_file(temp_buf);
         }
         else if(ip->inum == 302){ //inodeinfo
             struct dirent inodeinfoDirent;
