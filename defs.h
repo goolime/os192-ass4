@@ -33,6 +33,11 @@ void            fileinit(void);
 int             fileread(struct file*, char*, int n);
 int             filestat(struct file*, struct stat*);
 int             filewrite(struct file*, char*, int n);
+int             getNumberOfFreeFds(void);
+int             getUniqueInodeFds();
+int             getWriteableFdNumber(void);
+int             getReadableFdNumber(void);
+int             getRefsPerFds(void);
 
 // fs.c
 void            readsb(int dev, struct superblock *sb);
@@ -52,11 +57,16 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
+struct inode*   get_icache(void);
 
 // ide.c
 void            ideinit(void);
 void            ideintr(void);
 void            iderw(struct buf*);
+int             getWaitingOperations(void);
+int             getReadWaitingOperations(void);
+int             getWriteWaitingOperations(void);
+char*           getWorkingBlocks(void);
 
 // ioapic.c
 void            ioapicenable(int irq, int cpu);
@@ -120,9 +130,7 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-// ass4
-void            getActiveProc(int *arr);
-struct          proc *getProc(int slot);
+struct proc*    get_ptable(void);
 
 // procfs.c
 void            procfsinit(void);
@@ -153,6 +161,7 @@ char*           safestrcpy(char*, const char*, int);
 int             strlen(const char*);
 int             strncmp(const char*, const char*, uint);
 char*           strncpy(char*, const char*, int);
+char*           itoa(char* str, int num, int base);
 
 // syscall.c
 int             argint(int, int*);

@@ -31,6 +31,7 @@
 static struct spinlock idelock;
 static struct buf *idequeue;
 
+
 static int havedisk1;
 static void idestart(struct buf*);
 
@@ -165,4 +166,65 @@ iderw(struct buf *b)
 
 
   release(&idelock);
+}
+
+int getWaitingOperations(){
+    struct buf **pp;
+    int counter = 0;
+    acquire(&idelock);
+    for(pp=&idequeue; *pp; pp=&(*pp)->qnext){
+        counter++;
+    }
+    release(&idelock);
+    return counter;
+}
+
+int getReadWaitingOperations(){
+    struct buf **pp;
+    int counter = 0;
+    acquire(&idelock);
+    for(pp=&idequeue; *pp; pp=&(*pp)->qnext){
+        if((*pp)->flags & B_VALID) {
+            counter++;
+        }
+    }
+    release(&idelock);
+    return counter;
+}
+
+int getWriteWaitingOperations(){
+    struct buf **pp;
+    int counter = 0;
+    acquire(&idelock);
+    for(pp=&idequeue; *pp; pp=&(*pp)->qnext){
+        if((*pp)->flags & B_DIRTY) {
+            counter++;
+        }
+    }
+    release(&idelock);
+    return counter;
+}
+
+char workingBlocks[5000];
+
+char* getWorkingBlocks(){
+    struct buf **pp;
+    acquire(&idelock);
+
+    for(pp=&idequeue; *pp; pp=&(*pp)->qnext){
+        char dev[10];
+        char block[10];
+        itoa(dev,(*pp)->dev, 10);
+        itoa(block,(*pp)->blockno, 10);
+        strncpy(workingBlocks + strlen(workingBlocks), "(", strlen("(")+1);
+        strncpy(workingBlocks + strlen(workingBlocks), dev, strlen(dev)+1);
+        strncpy(workingBlocks + strlen(workingBlocks), ",", strlen(",")+1);
+        strncpy(workingBlocks + strlen(workingBlocks), block, strlen(block)+1);
+        strncpy(workingBlocks + strlen(workingBlocks), ")", strlen(")")+1);
+        strncpy(workingBlocks + strlen(workingBlocks), ";", strlen(";")+1);
+    }
+
+    release(&idelock);
+
+    return workingBlocks;
 }

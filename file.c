@@ -155,3 +155,120 @@ filewrite(struct file *f, char *addr, int n)
   panic("filewrite");
 }
 
+//Ass 4
+int getNumberOfFreeFds(){
+    struct file *f;
+    int counter = 0;
+
+    acquire(&ftable.lock);
+    for(f = ftable.file; f < ftable.file + NFILE; f++){
+        if(f->ref == 0){
+            counter++;
+        }
+    }
+    release(&ftable.lock);
+    return counter;
+}
+
+void initArray(uint uniqueInums[]){
+    int i;
+    for(i = 0; i<NINODE; i++){
+        uniqueInums[i] = -1;
+    }
+}
+
+int arraySize(uint uniqueInums[]){
+    int i;
+    int counter = 0;
+    for(i = 0; i<NINODE; i++){
+        if(uniqueInums[i] == -1){
+            return counter;
+        }
+        counter++;
+    }
+    if(i == NINODE)
+        return NINODE;
+    return -1;
+}
+
+int saveInum(uint uniqueInums[], uint inum){
+    int i;
+    for(i = 0; i<NINODE; i++){
+        if(uniqueInums[i] == -1){
+            uniqueInums[i] = inum;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int isExist(uint uniqueInums[], uint inum){
+    int i;
+    for(i = 0; i<NINODE; i++){
+        if(uniqueInums[i] == inum){
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int getUniqueInodeFds(){
+    struct file *f;
+    uint uniqueInums[NINODE];
+    initArray(uniqueInums);
+
+    acquire(&ftable.lock);
+    for(f = ftable.file; f < ftable.file + NFILE; f++){
+        if(!isExist(uniqueInums, f->ip->inum)) {
+            int ans = saveInum(uniqueInums, f->ip->inum);
+            if(ans == -1)
+                panic("couldn't save the inum in the array");
+        }
+    }
+    release(&ftable.lock);
+    return arraySize(uniqueInums);
+}
+
+int getWriteableFdNumber(){
+    struct file *f;
+    int counter = 0;
+
+    acquire(&ftable.lock);
+    for(f = ftable.file; f < ftable.file + NFILE; f++){
+        if(f->writable == 1){
+            counter++;
+        }
+    }
+    release(&ftable.lock);
+    return counter;
+}
+
+int getReadableFdNumber(){
+    struct file *f;
+    int counter = 0;
+
+    acquire(&ftable.lock);
+    for(f = ftable.file; f < ftable.file + NFILE; f++){
+        if(f->readable == 1){
+            counter++;
+        }
+    }
+    release(&ftable.lock);
+    return counter;
+}
+
+int getRefsPerFds(){
+    struct file *f;
+    int counterTotalRefs = 0;
+    int counterUsedFds = 0;
+
+    acquire(&ftable.lock);
+    for(f = ftable.file; f < ftable.file + NFILE; f++){
+        if(f->ref != 0){
+            counterUsedFds++;
+        }
+        counterTotalRefs += f->ref;
+    }
+    release(&ftable.lock);
+    return counterTotalRefs/counterUsedFds;
+}

@@ -169,6 +169,10 @@ struct {
   struct inode inode[NINODE];
 } icache;
 
+struct inode* get_icache(){
+    return icache.inode;
+}
+
 void
 iinit(int dev)
 {
