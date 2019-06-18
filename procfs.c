@@ -11,193 +11,135 @@
 #include "mmu.h"
 #include "proc.h"
 #include "x86.h"
+#define IDEINFO 300
+#define FILESTAT 301
+#define INODEINFO 302
+#define PID_BOTOM 303
+#define PID_TOP 400
+#define NAME_BOTOM 401
+#define NAME_TOP 500
+#define STATUS_BOTOM 501
+#define STATUS_TOP 600
 
-int sbninodes = 0;
-
-static char *states[] = {
-        [UNUSED]    "Unused",
-        [EMBRYO]    "Embryo",
-        [SLEEPING]  "Sleeping",
-        [RUNNABLE]  "Runnable",
-        [RUNNING]   "Running",
-        [ZOMBIE]    "Zombie"
-};
-
-void itoa(char *s, int n) // Convert integer to string
-{
-    int i = 0, len = 0;
-    if (n == 0) {
-        s[0] = '0';
-        return;
-    }
-    while (n != 0) {
-        s[len] = n % 10 + '0';
-        n = n / 10;
-        len++;
-    }
-    for (i = 0; i < len / 2; i++) {
-        char tmp = s[i];
-        s[i] = s[len - 1 - i];
-        s[len - 1 - i] = tmp;
-    }
-}
-
-
-void appendDirent(char *buff, char *dirName, int inum, int dirPlace) {
-    struct dirent dir;
-    dir.inum = inum;
-    memmove(&dir.name, dirName, strlen(dirName) + 1);
-    memmove(buff + dirPlace * sizeof(dir), (void *) &dir, sizeof(dir));
-}
-
-void appendString(char *buff, char *text) {
-    int textlen = strlen(text);
-    int sz = strlen(buff);
-    memmove(buff + sz, text, textlen);
-}
-
-void appendNumber(char *buff, int num) {
-    char numContainer[10] = {0};
-    itoa(numContainer, num);
-    appendString(buff, numContainer);
-}
-
-int Proc_folder(char *ansBuf) {
-    appendDirent(ansBuf, ".", namei("/proc")->inum, 0);
-    appendDirent(ansBuf, "..", namei("")->inum, 1);
-    appendDirent(ansBuf, "ideinfo", sbninodes + 1, 2);
-    appendDirent(ansBuf, "inodestat", sbninodes + 2, 3);
-    appendDirent(ansBuf, "inodeinfo", sbninodes + 3, 4);
-
-    // add dirent for every active process
-    int dirPlace = 5;
-    int pids[NPROC] = {0};
-    char numContainer[3] = {0};
-    getActiveProc(pids);
-    for (int i = 0; i < NPROC; i++)
-        if (pids[i] != 0) // if proc in use
-        {
-            numContainer[0] = 0;
-            numContainer[1] = 0;
-            numContainer[2] = 0;
-            itoa(numContainer, pids[i]);
-            appendDirent(ansBuf, numContainer, sbninodes + (i + 1) * 100, dirPlace);
-            dirPlace++;
-        }
-    return sizeof(struct dirent) * dirPlace;
-}
-
-int Pid_folder(char *ansBuf) {
-    short slot = ansBuf[0];
-    struct proc *p = getProc(slot);
-    char dirPath[9] = {0};
-    appendString(dirPath, "/proc/");
-    appendNumber(dirPath, p->pid);
-    appendDirent(ansBuf, ".", namei(dirPath)->inum, 0);
-    appendDirent(ansBuf, "..", namei("/proc")->inum, 1);
-    appendDirent(ansBuf, "name", sbninodes + 1 + (slot + 1) * 100, 2);
-    appendDirent(ansBuf, "status", sbninodes + 2 + (slot + 1) * 100, 3);
-    return sizeof(struct dirent) * 4;
-}
-
-int ideinfo_File(char *ansBuf) {
-    //TODO: need to act as if a file
-    return 0;
-}
-
-int filestat_File(char *ansBuf) {
-    //TODO: need to act as if a file
-    return 0;
-}
-
-int inodeinfo_File(char *ansBuf) {
-    //TODO: need to act as if a file
-    return 0;
-}
-
-int pidname_File(char *ansBuf) {
-    int slot = ansBuf[0];
-    ansBuf[0] = 0;
-    struct proc *p = getProc(slot);
-    if (p->pid != 0) {
-        appendString(ansBuf, "Process Name: ");
-        appendString(ansBuf, p->name);
-        appendString(ansBuf, "\n");
-    }
-    return strlen(ansBuf);
-}
-
-int pidstatus_File(char *ansBuf) {
-    int slot = ansBuf[0];
-    ansBuf[0] = 0;
-    struct proc *p = getProc(slot);
-    if (p->pid != 0) {
-        appendString(ansBuf, "Process ");
-        appendNumber(ansBuf, p->pid);
-        appendString(ansBuf, ":\nState: ");
-        appendString(ansBuf, states[p->state]);
-        appendString(ansBuf, "\nMemory Usage: ");
-        appendNumber(ansBuf, p->sz);
-        appendString(ansBuf, " bytes\n");
-    }
-    return strlen(ansBuf);
-}
-
-void initSBninodes(struct inode *ip) {
-    if (sbninodes != 0)
-        return;
-    struct superblock sb;
-    readsb(ip->dev, &sb);
-    sbninodes = sb.ninodes;
-}
 
 int
 procfsisdir(struct inode *ip) {
-    initSBninodes(ip);
-    // check if file or is a fake directory
-    if (ip->type != T_DEV || ip->major != PROCFS) return 0;
-    if (ip->minor == T_DIR) return ip->inum;
-    return 0;
+    if(ip->major == PROCFS && ip->type == T_DEV){
+        if((ip->minor == 0) || (ip->minor == 1 && ip->inum >= PID_BOTOM && ip->inum <PID_TOP) || (ip->minor == 2 && ip->inum > STATUS_TOP )) //it's a directory
+            return 1;
+    }
+    return 0; //not a directory
 }
 
 void
 procfsiread(struct inode *dp, struct inode *ip) {
-    ip->major = PROCFS;
-    ip->type = T_DEV;
-    ip->valid = 1;
+    ip->ref=1;
+    ip->type=T_DEV;
+    ip->major=PROCFS;
+    ip->nlink=1;
+    ip->valid=1;
+    // check if file or is a fake directory
+    int inum = ip->inum;
+    if (inum < IDEINFO) // proc
+        ip->minor = 0;
+    else if (inum >= IDEINFO && inum < PID_TOP)
+        ip->minor = 1;
+    else if (inum > PID_TOP)
+        ip->minor = 2;
 }
 
 int
 procfsread(struct inode *ip, char *dst, int off, int n) {
-    initSBninodes(ip);
-    char ansBuffer[1056] = {0}; // longest data is 66 dirents * 16 bytes
-    short slot = 0;
-    if (ip->inum >= sbninodes + 100) {
-        slot = (ip->inum - sbninodes) / 100 - 1;
-        ansBuffer[0] = slot;
-        short midInum = ip->inum % 100;
-        if (midInum >= 10)
-            ansBuffer[1] = midInum - 10;
-    }
+    char ansBuffer[sizeof(struct dirent) * NPROC + + sizeof(struct dirent) * NINODE + 1000];
     int ansLength = 0;
-    if (ip->inum < sbninodes)                    // proc folder
-        ansLength = Proc_folder(ansBuffer);
-    if (ip->inum == (sbninodes + 1))                // ideinfo file
-        ansLength = ideinfo_File(ansBuffer);
-    if (ip->inum == (sbninodes + 2))                // filestat file
-        ansLength = filestat_File(ansBuffer);
-    if (ip->inum == (sbninodes + 3))                // inodeinfo file
-        ansLength = inodeinfo_File(ansBuffer);
-    if (ip->inum % 100 == 0)                      // pid folder
-        ansLength = Pid_folder(ansBuffer);
-    if (ip->inum % 100 == 1)                      // name file
-        ansLength = pidname_File(ansBuffer);
-    if (ip->inum % 100 == 2)                      // status file
-        ansLength = pidstatus_File(ansBuffer);
+    if (ip->minor == 0){
+        cprintf("proc\n");
+        struct dirent currDirent;
+        struct dirent rootDirent;
+        struct dirent ideinfoDirent;
+        struct dirent filestatDirent;
+        struct dirent inodeinfoDirent;
+        //struct dirent pidDirent;
 
-    memmove(dst, ansBuffer + off, n);
-    if (n < ansLength - off) return n;
-    return ansLength - off;
+        currDirent.inum = ip->inum;
+        strncpy(currDirent.name,".",sizeof("."));
+        memmove(ansBuffer,(char*)&currDirent,sizeof(currDirent));
+
+        rootDirent.inum = ROOTINO;
+        strncpy(rootDirent.name,"..",sizeof(".."));
+        memmove(ansBuffer+sizeof(rootDirent),(char*)&rootDirent,sizeof(rootDirent));
+
+        ideinfoDirent.inum = IDEINFO;
+        strncpy(ideinfoDirent.name, "ideinfo", sizeof("ideinfo"));
+        memmove(ansBuffer + sizeof(struct dirent) * 2, (char*)&ideinfoDirent, sizeof(ideinfoDirent));
+
+        filestatDirent.inum = FILESTAT;
+        strncpy(filestatDirent.name, "filestat", sizeof("filestat"));
+        memmove(ansBuffer + sizeof(struct dirent) * 3, (char*)&filestatDirent, sizeof(filestatDirent));
+
+        inodeinfoDirent.inum = INODEINFO;
+        strncpy(inodeinfoDirent.name, "inodeinfo", sizeof("inodeinfo"));
+        memmove(ansBuffer + sizeof(struct dirent) * 4, (char*)&inodeinfoDirent, sizeof(inodeinfoDirent));
+        int counter = 5;
+        /*
+        int i = 0;
+
+        for(p = get_ptable(); p < &get_ptable()[NPROC]; p++){
+            if(p->state != UNUSED && p->state != ZOMBIE){
+                pidDirent.inum = 403 + i;
+                itoa(pidDirent.name , p->pid);
+                memmove(ansBuffer + sizeof(struct dirent) * counter, (char*)&pidDirent, sizeof(pidDirent));
+                counter++;
+            }
+            i++;
+        }
+         */
+        ansLength = counter * sizeof(struct dirent);
+    }
+
+        //ansLength = Proc_folder(ansBuffer,ip);
+    else if (ip->minor == 1){
+        cprintf("proc/");
+        if (ip->inum == IDEINFO) {
+            cprintf("ideinfo\n");
+            //ansLength = ideinfo_File(ansBuffer);
+        }
+        else if (ip->inum == FILESTAT) {
+            cprintf("filestate\n");
+            //ansLength = filestat_File(ansBuffer);
+        }
+        else if (ip->inum == INODEINFO) {
+            cprintf("inodeinfo\n");
+            //ansLength = inodeinfo_File(ansBuffer);
+        }
+        else if (ip->inum>=PID_BOTOM && ip->inum<=PID_TOP){
+                cprintf("PID\n");
+            //ansLength = Pid_folder(ansBuffer);
+        }
+        else
+            panic("not in /proc/");
+    }
+    else if (ip->minor == 2){
+        cprintf("proc/PID/");
+        if (ip->inum>=NAME_BOTOM && ip->inum<= NAME_TOP) {
+            cprintf("name\n");
+            //ansLength = pidname_File(ansBuffer);
+        }
+        else if (ip->inum>=STATUS_BOTOM && ip->inum <= STATUS_TOP) {
+            cprintf("status\n");
+            //ansLength = pidstatus_File(ansBuffer);
+        }
+        else
+            panic("not in /proc/pid/");
+    }
+    if (off<ansLength){
+        int tmp_n=ansLength-off;
+        if (n<tmp_n)
+            tmp_n=n;
+        memmove(dst, ansBuffer + off, tmp_n);
+        return tmp_n;
+    }
+    return 0;
 }
 
 int
