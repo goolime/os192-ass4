@@ -12,216 +12,198 @@
 
 struct devsw devsw[NDEV];
 struct {
-  struct spinlock lock;
-  struct file file[NFILE];
+    struct spinlock lock;
+    struct file file[NFILE];
 } ftable;
 
 void
-fileinit(void)
-{
-  initlock(&ftable.lock, "ftable");
+fileinit(void) {
+    initlock(&ftable.lock, "ftable");
 }
 
 // Allocate a file structure.
-struct file*
-filealloc(void)
-{
-  struct file *f;
+struct file *
+filealloc(void) {
+    struct file *f;
 
-  acquire(&ftable.lock);
-  for(f = ftable.file; f < ftable.file + NFILE; f++){
-    if(f->ref == 0){
-      f->ref = 1;
-      release(&ftable.lock);
-      return f;
+    acquire(&ftable.lock);
+    for (f = ftable.file; f < ftable.file + NFILE; f++) {
+        if (f->ref == 0) {
+            f->ref = 1;
+            release(&ftable.lock);
+            return f;
+        }
     }
-  }
-  release(&ftable.lock);
-  return 0;
+    release(&ftable.lock);
+    return 0;
 }
 
 // Increment ref count for file f.
-struct file*
-filedup(struct file *f)
-{
-  acquire(&ftable.lock);
-  if(f->ref < 1)
-    panic("filedup");
-  f->ref++;
-  release(&ftable.lock);
-  return f;
+struct file *
+filedup(struct file *f) {
+    acquire(&ftable.lock);
+    if (f->ref < 1)
+        panic("filedup");
+    f->ref++;
+    release(&ftable.lock);
+    return f;
 }
 
 // Close file f.  (Decrement ref count, close when reaches 0.)
 void
-fileclose(struct file *f)
-{
-  struct file ff;
+fileclose(struct file *f) {
+    struct file ff;
 
-  acquire(&ftable.lock);
-  if(f->ref < 1)
-    panic("fileclose");
-  if(--f->ref > 0){
+    acquire(&ftable.lock);
+    if (f->ref < 1)
+        panic("fileclose");
+    if (--f->ref > 0) {
+        release(&ftable.lock);
+        return;
+    }
+    ff = *f;
+    f->ref = 0;
+    f->type = FD_NONE;
     release(&ftable.lock);
-    return;
-  }
-  ff = *f;
-  f->ref = 0;
-  f->type = FD_NONE;
-  release(&ftable.lock);
 
-  if(ff.type == FD_PIPE)
-    pipeclose(ff.pipe, ff.writable);
-  else if(ff.type == FD_INODE){
-    begin_op();
-    iput(ff.ip);
-    end_op();
-  }
+    if (ff.type == FD_PIPE)
+        pipeclose(ff.pipe, ff.writable);
+    else if (ff.type == FD_INODE) {
+        begin_op();
+        iput(ff.ip);
+        end_op();
+    }
 }
 
 // Get metadata about file f.
 int
-filestat(struct file *f, struct stat *st)
-{
-  if(f->type == FD_INODE){
-    ilock(f->ip);
-    stati(f->ip, st);
-    iunlock(f->ip);
-    return 0;
-  }
-  return -1;
+filestat(struct file *f, struct stat *st) {
+    if (f->type == FD_INODE) {
+        ilock(f->ip);
+        stati(f->ip, st);
+        iunlock(f->ip);
+        return 0;
+    }
+    return -1;
 }
 
 // Read from file f.
 int
-fileread(struct file *f, char *addr, int n)
-{
-  int r;
+fileread(struct file *f, char *addr, int n) {
+    int r;
 
-  if(f->readable == 0)
-    return -1;
-  if(f->type == FD_PIPE)
-    return piperead(f->pipe, addr, n);
-  if(f->type == FD_INODE){
-    ilock(f->ip);
-    if((r = readi(f->ip, addr, f->off, n)) > 0)
-      f->off += r;
-    iunlock(f->ip);
-    return r;
-  }
-  panic("fileread");
+    if (f->readable == 0)
+        return -1;
+    if (f->type == FD_PIPE)
+        return piperead(f->pipe, addr, n);
+    if (f->type == FD_INODE) {
+        ilock(f->ip);
+        if ((r = readi(f->ip, addr, f->off, n)) > 0)
+            f->off += r;
+        iunlock(f->ip);
+        return r;
+    }
+    panic("fileread");
 }
 
 //PAGEBREAK!
 // Write to file f.
 int
-filewrite(struct file *f, char *addr, int n)
-{
-  int r;
+filewrite(struct file *f, char *addr, int n) {
+    int r;
 
-  if(f->writable == 0)
-    return -1;
-  if(f->type == FD_PIPE)
-    return pipewrite(f->pipe, addr, n);
-  if(f->type == FD_INODE){
-    // write a few blocks at a time to avoid exceeding
-    // the maximum log transaction size, including
-    // i-node, indirect block, allocation blocks,
-    // and 2 blocks of slop for non-aligned writes.
-    // this really belongs lower down, since writei()
-    // might be writing a device like the console.
-    int max = ((MAXOPBLOCKS-1-1-2) / 2) * 512;
-    int i = 0;
-    while(i < n){
-      int n1 = n - i;
-      if(n1 > max)
-        n1 = max;
+    if (f->writable == 0)
+        return -1;
+    if (f->type == FD_PIPE)
+        return pipewrite(f->pipe, addr, n);
+    if (f->type == FD_INODE) {
+        // write a few blocks at a time to avoid exceeding
+        // the maximum log transaction size, including
+        // i-node, indirect block, allocation blocks,
+        // and 2 blocks of slop for non-aligned writes.
+        // this really belongs lower down, since writei()
+        // might be writing a device like the console.
+        int max = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * 512;
+        int i = 0;
+        while (i < n) {
+            int n1 = n - i;
+            if (n1 > max)
+                n1 = max;
 
-      begin_op();
-      ilock(f->ip);
-      if ((r = writei(f->ip, addr + i, f->off, n1)) > 0)
-        f->off += r;
-      iunlock(f->ip);
-      end_op();
+            begin_op();
+            ilock(f->ip);
+            if ((r = writei(f->ip, addr + i, f->off, n1)) > 0)
+                f->off += r;
+            iunlock(f->ip);
+            end_op();
 
-      if(r < 0)
-        break;
-      if(r != n1)
-        panic("short filewrite");
-      i += r;
+            if (r < 0)
+                break;
+            if (r != n1)
+                panic("short filewrite");
+            i += r;
+        }
+        return i == n ? n : -1;
     }
-    return i == n ? n : -1;
-  }
-  panic("filewrite");
+    panic("filewrite");
 }
 
-//Ass 4
-int getNumberOfFreeFds(){
+// Ass4
+
+int numOfFreeFDS() {
     struct file *f;
-    int counter = 0;
+    int ans = 0;
 
     acquire(&ftable.lock);
-    for(f = ftable.file; f < ftable.file + NFILE; f++){
-        if(f->ref == 0){
-            counter++;
+    for (f = ftable.file; f < ftable.file + NFILE; f++) {
+        if (f->ref == 0) {
+            ans++;
         }
     }
     release(&ftable.lock);
-    return counter;
+    return ans;
 }
 
-void initArray(uint uniqueInums[]){
-    int i;
-    for(i = 0; i<NINODE; i++){
-        uniqueInums[i] = -1;
-    }
-}
-
-int arraySize(uint uniqueInums[]){
-    int i;
-    int counter = 0;
-    for(i = 0; i<NINODE; i++){
-        if(uniqueInums[i] == -1){
+int arraySize(uint uniqueInums[]) {
+    int counter = 0, i;
+    for (i = 0; i < NINODE; i++) {
+        if (uniqueInums[i] == -1)
             return counter;
-        }
         counter++;
     }
-    if(i == NINODE)
+    if (i == NINODE)
         return NINODE;
     return -1;
 }
 
-int saveInum(uint uniqueInums[], uint inum){
-    int i;
-    for(i = 0; i<NINODE; i++){
-        if(uniqueInums[i] == -1){
+int saveInum(uint uniqueInums[], uint inum) {
+    for (int i = 0; i < NINODE; i++)
+        if (uniqueInums[i] == -1) {
             uniqueInums[i] = inum;
             return 0;
         }
-    }
     return -1;
 }
 
-int isExist(uint uniqueInums[], uint inum){
-    int i;
-    for(i = 0; i<NINODE; i++){
-        if(uniqueInums[i] == inum){
+int isExist(uint uniqueInums[], uint inum) {
+    for (int i = 0; i < NINODE; i++)
+        if (uniqueInums[i] == inum)
             return 1;
-        }
-    }
     return 0;
 }
 
-int getUniqueInodeFds(){
+int numOfUniqueFDS() {
     struct file *f;
     uint uniqueInums[NINODE];
-    initArray(uniqueInums);
+
+    for (int i = 0; i < NINODE; i++)
+        uniqueInums[i] = -1;
 
     acquire(&ftable.lock);
-    for(f = ftable.file; f < ftable.file + NFILE; f++){
-        if(!isExist(uniqueInums, f->ip->inum)) {
+    for (f = ftable.file; f < ftable.file + NFILE; f++) {
+        if (!isExist(uniqueInums, f->ip->inum)) {
             int ans = saveInum(uniqueInums, f->ip->inum);
-            if(ans == -1)
+            if (ans == -1)
                 panic("couldn't save the inum in the array");
         }
     }
@@ -229,46 +211,43 @@ int getUniqueInodeFds(){
     return arraySize(uniqueInums);
 }
 
-int getWriteableFdNumber(){
+int numOfWriteableFDS() {
     struct file *f;
     int counter = 0;
 
     acquire(&ftable.lock);
-    for(f = ftable.file; f < ftable.file + NFILE; f++){
-        if(f->writable == 1){
+    for (f = ftable.file; f < ftable.file + NFILE; f++) {
+        if (f->writable == 1)
             counter++;
-        }
     }
     release(&ftable.lock);
     return counter;
 }
 
-int getReadableFdNumber(){
+int numOFReadableFDS() {
     struct file *f;
     int counter = 0;
 
     acquire(&ftable.lock);
-    for(f = ftable.file; f < ftable.file + NFILE; f++){
-        if(f->readable == 1){
+    for (f = ftable.file; f < ftable.file + NFILE; f++) {
+        if (f->readable == 1)
             counter++;
-        }
     }
     release(&ftable.lock);
     return counter;
 }
 
-int getRefsPerFds(){
+int numOfRafs() {
     struct file *f;
-    int counterTotalRefs = 0;
-    int counterUsedFds = 0;
+    int total = 0;
+    int usedFDS = 0;
 
     acquire(&ftable.lock);
-    for(f = ftable.file; f < ftable.file + NFILE; f++){
-        if(f->ref != 0){
-            counterUsedFds++;
-        }
-        counterTotalRefs += f->ref;
+    for (f = ftable.file; f < ftable.file + NFILE; f++) {
+        if (f->ref != 0)
+            usedFDS++;
+        total += f->ref;
     }
     release(&ftable.lock);
-    return counterTotalRefs/counterUsedFds;
+    return total / usedFDS;
 }

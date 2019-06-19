@@ -179,52 +179,34 @@ int getWaitingOperations(){
     return counter;
 }
 
-int getReadWaitingOperations(){
-    struct buf **pp;
-    int counter = 0;
+int numOfWritingOps() {
+    struct buf **tmp;
+    int ans = 0;
     acquire(&idelock);
-    for(pp=&idequeue; *pp; pp=&(*pp)->qnext){
-        if((*pp)->flags & B_VALID) {
-            counter++;
-        }
-    }
+    for (tmp = &idequeue; *tmp; tmp = &(*tmp)->qnext)
+        ans++;
     release(&idelock);
-    return counter;
+    return ans;
 }
 
-int getWriteWaitingOperations(){
-    struct buf **pp;
-    int counter = 0;
+int numOfReadWaitingOps() {
+    struct buf **tmp;
+    int ans = 0;
     acquire(&idelock);
-    for(pp=&idequeue; *pp; pp=&(*pp)->qnext){
-        if((*pp)->flags & B_DIRTY) {
-            counter++;
-        }
-    }
+    for (tmp = &idequeue; *tmp; tmp = &(*tmp)->qnext)
+        if ((*tmp)->flags & B_VALID)
+            ans++;
     release(&idelock);
-    return counter;
+    return ans;
 }
 
-char workingBlocks[5000];
-
-char* getWorkingBlocks(){
-    struct buf **pp;
+int numWriteWaitingOps() {
+    struct buf **tmp;
+    int ans = 0;
     acquire(&idelock);
-
-    for(pp=&idequeue; *pp; pp=&(*pp)->qnext){
-        char dev[10];
-        char block[10];
-        itoa(dev,(*pp)->dev, 10);
-        itoa(block,(*pp)->blockno, 10);
-        strncpy(workingBlocks + strlen(workingBlocks), "(", strlen("(")+1);
-        strncpy(workingBlocks + strlen(workingBlocks), dev, strlen(dev)+1);
-        strncpy(workingBlocks + strlen(workingBlocks), ",", strlen(",")+1);
-        strncpy(workingBlocks + strlen(workingBlocks), block, strlen(block)+1);
-        strncpy(workingBlocks + strlen(workingBlocks), ")", strlen(")")+1);
-        strncpy(workingBlocks + strlen(workingBlocks), ";", strlen(";")+1);
-    }
-
+    for (tmp = &idequeue; *tmp; tmp = &(*tmp)->qnext)
+        if ((*tmp)->flags & B_DIRTY)
+            ans++;
     release(&idelock);
-
-    return workingBlocks;
+    return ans;
 }

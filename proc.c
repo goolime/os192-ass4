@@ -12,9 +12,6 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
-struct proc* get_ptable(){
-    return ptable.proc;
-}
 
 static struct proc *initproc;
 
@@ -535,4 +532,22 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+void getActiveProc(int *arr) {
+    struct proc *p;
+    int i = 0;
+    acquire(&ptable.lock);
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++, i++)
+        if (p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING)
+            arr[i] = p->pid;
+    release(&ptable.lock);
+}
+
+struct proc *getProc(int index) {
+    return &ptable.proc[index];
+}
+
+struct proc *getPtable() {
+    return ptable.proc;
 }

@@ -33,11 +33,11 @@ void            fileinit(void);
 int             fileread(struct file*, char*, int n);
 int             filestat(struct file*, struct stat*);
 int             filewrite(struct file*, char*, int n);
-int             getNumberOfFreeFds(void);
-int             getUniqueInodeFds();
-int             getWriteableFdNumber(void);
-int             getReadableFdNumber(void);
-int             getRefsPerFds(void);
+int             numOfFreeFDS(void);
+int             numOfUniqueFDS();
+int             numOfWriteableFDS(void);
+int             numOFReadableFDS(void);
+int             numOfRafs(void);
 
 // fs.c
 void            readsb(int dev, struct superblock *sb);
@@ -63,10 +63,9 @@ struct inode*   get_icache(void);
 void            ideinit(void);
 void            ideintr(void);
 void            iderw(struct buf*);
-int             getWaitingOperations(void);
-int             getReadWaitingOperations(void);
-int             getWriteWaitingOperations(void);
-char*           getWorkingBlocks(void);
+int             numOfWritingOps(void); //ass4
+int             numOfReadWaitingOps(void); //ass4
+int             numWriteWaitingOps(void); //ass4
 
 // ioapic.c
 void            ioapicenable(int irq, int cpu);
@@ -130,7 +129,9 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-struct proc*    get_ptable(void);
+struct proc*    getPtable(void);
+void            getActiveProc(int *arr);
+struct proc*    getProc(int slot);
 
 // procfs.c
 void            procfsinit(void);
